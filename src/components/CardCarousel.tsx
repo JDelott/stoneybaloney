@@ -1,11 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, TouchEvent } from 'react';
 import Image from 'next/image';
 
 export default function CardCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+
+  // Minimum swipe distance for a swipe to register (in pixels)
+  const minSwipeDistance = 50;
+
   const cards = [
     { id: 1, name: 'Abracadabra', image: '/abracadabra-card-copy-2.png' },
     { id: 2, name: 'Alien Bubba', image: '/alien-bubba-card-copy.png' },
@@ -37,6 +43,37 @@ export default function CardCarousel() {
     setCurrentIndex((prevIndex) => 
       prevIndex === 0 ? cards.length - 1 : prevIndex - 1
     );
+  };
+
+  const handleTouchStart = (e: TouchEvent) => {
+    setTouchStart(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (isSwiping) {
+      setTouchEnd(e.touches[0].clientX);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      nextCard();
+    }
+    if (isRightSwipe) {
+      prevCard();
+    }
+
+    setTouchStart(0);
+    setTouchEnd(0);
   };
 
   // Adjust visible cards based on screen size
@@ -71,7 +108,12 @@ export default function CardCarousel() {
       </button>
 
       {/* Cards Container */}
-      <div className="relative h-full flex items-center justify-center perspective-1000">
+      <div 
+        className="relative h-full flex items-center justify-center perspective-1000"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {getVisibleCards().map((index, i) => {
           const card = cards[index];
           const position = i - (getVisibleCards().length - 1) / 2;
@@ -88,6 +130,8 @@ export default function CardCarousel() {
                   translateX(${position * (cardWidth * 0.8)}px) 
                   scale(${1 - Math.abs(position) * 0.2})
                   rotateY(${position * 5}deg)
+                  ${isSwiping && touchStart && touchEnd ? 
+                    `translateX(${(touchEnd - touchStart) * 0.5}px)` : ''}
                 `,
                 zIndex: 10 - Math.abs(position),
                 opacity: 1 - Math.abs(position) * 0.3,
@@ -103,6 +147,7 @@ export default function CardCarousel() {
                     style={{ objectFit: 'cover' }}
                     className="transition-transform duration-300 group-hover:scale-105"
                     priority={Math.abs(position) <= 1}
+                    draggable={false}
                   />
                   <div 
                     className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"
